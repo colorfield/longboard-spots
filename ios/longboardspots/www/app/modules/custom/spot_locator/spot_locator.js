@@ -24,6 +24,8 @@ function spot_locator_menu() {
 function spot_locator_page() {
   var content = {};
   try {
+    // @todo sync views with observer pattern / data model
+    
     // spots autocomplete
     // @todo move in helper
     // @todo fetch from view
@@ -91,11 +93,16 @@ function spot_locator_page() {
  * @returns {undefined}
  */
 function spots_autocomplete_onclick(id, item) {
+  //console.log('List id: ' + id);
+  //drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
+  drupalgap_goto('node/'+$(item).attr('value'));
   /*
-  console.log('List id: ' + id);
-  drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
+  node_load($(item).attr('value'), {
+    success:function(node){
+      alert("Loaded " + node.title);
+    }
+  });
   */
-  drupalgap_goto('node/'+id);
 }
 
 /**
@@ -107,7 +114,7 @@ function spot_locator_map_pageshow() {
       // Success.
       function(position) {
         alert(position.coords.latitude + ' - ' + position.coords.longitude);
-        /*
+        
         // Set aside the user's position.
         _spot_locator_user_latitude = position.coords.latitude;
         _spot_locator_user_longitude = position.coords.longitude;
@@ -144,12 +151,11 @@ function spot_locator_map_pageshow() {
             map: _spot_locator_map,
             icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
         });
-        */
       },
       
       // Error
       function(error) {
-        console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
+        //console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
         drupalgap_alert(error);
       },
       

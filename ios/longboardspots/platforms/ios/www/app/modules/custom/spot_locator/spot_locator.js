@@ -29,23 +29,23 @@ function spot_locator_page() {
     // @todo fetch from view
     var spots = [
       {
-        value: 'lux',
+        value: '1',
         label: 'Gare du Luxembourg'
       },
       {
-        value: 'bois',
+        value: '2',
         label: 'Bois de la Cambre'
       },
       {
-        value: 'tumulis',
+        value: '4',
         label: 'Chemin des Tumulis'
       },
       {
-        value: 'mabru',
+        value: '3',
         label: 'Mabru'
       },
       {
-        value: '50',
+        value: '5',
         label: 'Cinquantenaire'
       }
     ];
@@ -91,8 +91,16 @@ function spot_locator_page() {
  * @returns {undefined}
  */
 function spots_autocomplete_onclick(id, item) {
-  console.log('List id: ' + id);
-  drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
+  //console.log('List id: ' + id);
+  //drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
+  drupalgap_goto('node/'+$(item).attr('value'));
+  /*
+  node_load($(item).attr('value'), {
+    success:function(node){
+      alert("Loaded " + node.title);
+    }
+  });
+  */
 }
 
 /**
@@ -104,7 +112,7 @@ function spot_locator_map_pageshow() {
       // Success.
       function(position) {
         alert(position.coords.latitude + ' - ' + position.coords.longitude);
-        /*
+        
         // Set aside the user's position.
         _spot_locator_user_latitude = position.coords.latitude;
         _spot_locator_user_longitude = position.coords.longitude;
@@ -119,7 +127,8 @@ function spot_locator_map_pageshow() {
         var mapOptions = {
           center: myLatlng,
           zoom: 11,
-          mapTypeControl: true,
+          mapTypeControl: true
+          /*,
           mapTypeControlOptions: {
             style: google.maps.MapTypeControlStyle.DROPDOWN_MENU
           },
@@ -127,6 +136,7 @@ function spot_locator_map_pageshow() {
           zoomControlOptions: {
             style: google.maps.ZoomControlStyle.SMALL
           }
+          */
         };
         
         // Initialize the map.
@@ -135,6 +145,7 @@ function spot_locator_map_pageshow() {
           mapOptions
         );
         
+        /*
         // Add a marker for the user's current position.
         var marker = new google.maps.Marker({
             position: myLatlng,
@@ -146,7 +157,7 @@ function spot_locator_map_pageshow() {
       
       // Error
       function(error) {
-        console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
+        //console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
         drupalgap_alert(error);
       },
       
