@@ -1,0 +1,9 @@
+<?php
+
+/**
+ * Implements hook_services_request_postprocess_alter().
+ */
+function drupalgap_rate_drupalgap_site_settings(&$names) {
+  $names[] = 'rate_widgets';
+}
+
