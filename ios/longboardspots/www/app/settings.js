@@ -18,7 +18,8 @@ Drupal.settings.file_public_path = 'sites/default/files';
 //Drupal.settings.file_private_path = 'system/files';
 
 // The Default Language Code
-Drupal.settings.language_default = 'und';
+//Drupal.settings.language_default = 'und';
+Drupal.settings.language_default = 'fr';
 
 /* Drupal Caching */
 
@@ -41,17 +42,20 @@ Drupal.settings.cache.views.expiration = 3600;
  *************/
 
 // App Title
-drupalgap.settings.title = 'DrupalGap';
+drupalgap.settings.title = 'Longboard Spots';
 
 // App Front Page
 //drupalgap.settings.front = 'dashboard';
-drupalgap.settings.front = 'hello_world';
+drupalgap.settings.front = 'hello-world';
 
 // Theme
 drupalgap.settings.theme = 'easystreet3';
+// throws app/themes/longboardplanet/longboardplanet.js not found
+//drupalgap.settings.theme = 'longboardplanet';
 
 // Logo
 drupalgap.settings.logo = 'themes/easystreet3/images/drupalgap.jpg';
+//drupalgap.settings.logo = 'themes/longboardplanet/images/longboard_planet.png';
 
 // Offline Warning Message. Set to false to hide message.
 drupalgap.settings.offline_message = 'No connection found!';
@@ -168,6 +172,15 @@ drupalgap.settings.menus['main_menu'] = {
     {
       title:'Users',
       path:'user-listing',
+      options:{
+        attributes:{
+          'data-icon':'info'
+        }
+      }
+    },
+    {
+      title:'Hello World',
+      path:'hello-world',
       options:{
         attributes:{
           'data-icon':'info'
