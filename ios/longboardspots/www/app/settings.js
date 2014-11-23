@@ -18,8 +18,8 @@ Drupal.settings.file_public_path = 'sites/default/files';
 //Drupal.settings.file_private_path = 'system/files';
 
 // The Default Language Code
-//Drupal.settings.language_default = 'und';
-Drupal.settings.language_default = 'fr';
+Drupal.settings.language_default = 'und';
+//Drupal.settings.language_default = 'fr';
 
 /* Drupal Caching */
 
@@ -46,7 +46,7 @@ drupalgap.settings.title = 'Longboard Spots';
 
 // App Front Page
 //drupalgap.settings.front = 'dashboard';
-drupalgap.settings.front = 'hello-world';
+drupalgap.settings.front = 'spots';
 
 // Theme
 drupalgap.settings.theme = 'easystreet3';
@@ -179,8 +179,8 @@ drupalgap.settings.menus['main_menu'] = {
       }
     },
     {
-      title:'Hello World',
-      path:'hello-world',
+      title:'Spots',
+      path:'spots',
       options:{
         attributes:{
           'data-icon':'info'
@@ -223,7 +223,7 @@ drupalgap.settings.blocks.easystreet3 = {
     main: { }
   },
   footer: {
-    powered_by: { }
+    //powered_by: { }
   }
 };
 
