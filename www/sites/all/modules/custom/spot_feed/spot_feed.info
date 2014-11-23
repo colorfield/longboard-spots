@@ -1,0 +1,6 @@
+name = Spot Feed
+description = "Geolocates spots and outputs as a feed."
+version = "7.x-1.0"
+core = 7.x
+package = "Spot"
+dependencies[] = views

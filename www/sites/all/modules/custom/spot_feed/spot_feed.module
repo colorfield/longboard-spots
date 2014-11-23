@@ -1,0 +1,43 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function spot_feed_menu() {
+  $items['spots'] = array(
+      'title' => 'Spots',
+      'page callback' => 'spot_feed_get_spots',
+      'access callback' => TRUE,
+      //'menu_name' => 'main-menu',
+  );
+  return $items;
+}
+
+/**
+ * Fetches spots
+ */
+function spot_feed_get_spots() {
+  global $language;
+  $output = '';
+  $query = db_select('node', 'n')
+          ->fields('n', array('nid'))
+          ->addTag('node_access');
+  $query->condition('n.type', 'spot');
+  $query->condition('n.status', '1');
+//  $query->condition('n.language', array($language->language, LANGUAGE_NONE), 'IN');
+  $nids = $query->execute();
+  if (variable_get('debug_mode') == 1) {
+    dpm((string) $query);
+    dpm($query->arguments());
+  }
+  $nodes = node_load_multiple($nids);
+  if (count($nodes) > 0) {
+    foreach ($nodes as $node) {
+      $node_view = node_view($node, 'teaser');
+      $output .= drupal_render($node_view);
+    }
+  } else {
+    drupal_set_message(t('No spots were found.'));
+  }
+  return $output;
+}

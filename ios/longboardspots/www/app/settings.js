@@ -44,7 +44,8 @@ Drupal.settings.cache.views.expiration = 3600;
 drupalgap.settings.title = 'DrupalGap';
 
 // App Front Page
-drupalgap.settings.front = 'dashboard';
+//drupalgap.settings.front = 'dashboard';
+drupalgap.settings.front = 'hello_world';
 
 // Theme
 drupalgap.settings.theme = 'easystreet3';
@@ -85,6 +86,7 @@ drupalgap.settings.loader = {
 /** Custom Modules - www/app/modules/custom **/
 
 //Drupal.modules.custom['my_module'] = {};
+Drupal.modules.custom['spot_locator'] = {};
 
 /***************************************|
  * Menus - http://drupalgap.org/node/85 |

@@ -34,3 +34,29 @@ xmlrpc.php
 /profiles
 /scripts
 /themes
+/nbproject/private/
+
+# OS / IDE generated files #
+######################
+.DS_Store*
+ehthumbs.db
+Icon?
+Thumbs.db
+_notes
+dwsync.xml
+nbproject
+*.esproj
+._.DS_Store
+._.DS_Store*
+*DS_Store*
+*/.sass-cache/*
+.sass-cache
+.sass-cache/*
+._*
+*.sublime-project
+*.sublime-workspace
+*.idea
+
+.AppleDB
+.AppleDesktop
+Network Trash Folder
