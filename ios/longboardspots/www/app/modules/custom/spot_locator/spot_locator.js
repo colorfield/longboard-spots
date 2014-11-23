@@ -55,9 +55,20 @@ function spot_locator_page() {
     content.spots_autocomplete = {
       theme: 'autocomplete',
       items: spots,
-      item_onclick: 'spots_autocomplete_onclick',
+      item_onclick: 'spots_locator_autocomplete_onclick',
       attributes: {
         id: 'spots_autocomplete_input'
+      }
+    };
+    
+    // find spots button
+    content['find_nearby_locations'] = {
+      theme: 'button',
+      text: 'Closest spots',
+      attributes: {
+        //onclick: "drupalgap_alert('You clicked me!');",
+        onclick: "spots_locator_map_button_click()",
+        'data-theme': 'b'
       }
     };
     
@@ -72,18 +83,18 @@ function spot_locator_page() {
       markup: '<div ' + drupalgap_attributes(map_attributes) + '></div>'
     };
     
+    // location results list
+    content['location_results'] = {
+      theme: 'jqm_item_list',
+      items: [],
+      attributes: {
+        id: 'location_results_list'
+      }
+    };
+    
     return content;
   }
   catch (error) { console.log('autocomplete spots - ' + error); }
-  /*
-  content['fetch_detail_button'] = {
-    theme: 'button',
-    text: 'Detail',
-    attributes: {
-      onclick: "drupalgap_alert('@todo fetch spots details')"
-    }
-  };
-  */
 }
 
 /**
@@ -92,7 +103,7 @@ function spot_locator_page() {
  * @param {type} item
  * @returns {undefined}
  */
-function spots_autocomplete_onclick(id, item) {
+function spots_locator_autocomplete_onclick(id, item) {
   //console.log('List id: ' + id);
   //drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
   drupalgap_goto('node/'+$(item).attr('value'));
@@ -106,6 +117,67 @@ function spots_autocomplete_onclick(id, item) {
 }
 
 /**
+ * The "Find Nearby Locations" click handler.
+ */
+function spots_locator_map_button_click() {
+
+  try {
+    // Build the path to the view to retrieve the results.
+    var range = 4; // Search within a 4 kilometers radius, for illustration purposes.
+    //var path = 'nearby-locations.json/' + _my_module_user_latitude + ',' + _my_module_user_longitude + '_' + range;
+    var path = 'nearby-locations.json/' + _spot_locator_user_latitude + ',' + _spot_locator_user_longitude;
+    
+    drupalgap_alert('Try to fetch spots');
+    
+    // Call the server.
+    views_datasource_get_view_result(path, {
+        success: function(data) {
+          
+          // drupalgap_alert('Datasource results');
+          
+          if (data.nodes.length == 0) {
+            drupalgap_alert('Sorry, we did not find any nearby locations!');
+            return;
+          }
+
+          // Iterate over each spot, add it to the list and place a marker on the map.
+          var items = [];
+          $.each(data.nodes, function(index, object) {
+              
+              // Render a nearby location, and add it to the item list.
+              var row = object.node;
+              var image_html = theme('image', { path: row.field_image });
+              var distance =
+                row.field_geofield_distance + ' ' +
+                drupalgap_format_plural(row.field_geofield_distance, 'kilometer', 'kilometers');
+              var description =
+                '<h2>' + distance + '</h2>' +
+                '<p>' + row.title + '</p>';
+              var link = l(image_html + description, 'node/' + row.nid);
+              items.push(link);
+              
+              // Add a marker on the map for the location.
+              var locationLatlng = new google.maps.LatLng(row.latitude, row.longitude);
+              var marker = new google.maps.Marker({
+                  position: locationLatlng,
+                  map: _spot_locator_map,
+                  data: row
+              });
+              
+          });
+          drupalgap_item_list_populate("#location_results_list", items);
+
+        }
+    });
+    
+  }
+  catch (error) { console.log('spots_locator_map_button_click - ' + error); }
+  
+
+}
+
+
+/**
  * The map pageshow callback.
  */
 function spot_locator_map_pageshow() {
@@ -113,7 +185,7 @@ function spot_locator_map_pageshow() {
     navigator.geolocation.getCurrentPosition(
       // Success.
       function(position) {
-        alert(position.coords.latitude + ' - ' + position.coords.longitude);
+        //drupalgap_alert(position.coords.latitude + ' / ' + position.coords.longitude);
         
         // Set aside the user's position.
         _spot_locator_user_latitude = position.coords.latitude;
@@ -155,7 +227,7 @@ function spot_locator_map_pageshow() {
       
       // Error
       function(error) {
-        //console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
+        console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
         drupalgap_alert(error);
       },
       
@@ -164,6 +236,6 @@ function spot_locator_map_pageshow() {
       
     );
   }
-  catch (error) { console.log('spot_locator_map_pageshow - ' + error); }
+  catch (error) { console.log('spots_locator_map_button_click - ' + error); }
 
 }
