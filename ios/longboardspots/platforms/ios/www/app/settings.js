@@ -86,6 +86,10 @@ drupalgap.settings.loader = {
 /** Contributed Modules - www/app/modules **/
 
 //Drupal.modules.contrib['example'] = {};
+/*
+Drupal.modules.contrib['addressfield'] = {};
+Drupal.modules.contrib['geofield'] = {};
+*/
 
 /** Custom Modules - www/app/modules/custom **/
 

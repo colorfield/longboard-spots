@@ -29,23 +29,23 @@ function spot_locator_page() {
     // @todo fetch from view
     var spots = [
       {
-        value: 'lux',
+        value: '1',
         label: 'Gare du Luxembourg'
       },
       {
-        value: 'bois',
+        value: '2',
         label: 'Bois de la Cambre'
       },
       {
-        value: 'tumulis',
+        value: '4',
         label: 'Chemin des Tumulis'
       },
       {
-        value: 'mabru',
+        value: '3',
         label: 'Mabru'
       },
       {
-        value: '50',
+        value: '5',
         label: 'Cinquantenaire'
       }
     ];
@@ -65,6 +65,7 @@ function spot_locator_page() {
       id: 'spot_locator_map',
       style: 'width: 100%; height: 320px;'
     };
+    
     content['map'] = {
       markup: '<div ' + drupalgap_attributes(map_attributes) + '></div>'
     };
@@ -90,8 +91,11 @@ function spot_locator_page() {
  * @returns {undefined}
  */
 function spots_autocomplete_onclick(id, item) {
+  /*
   console.log('List id: ' + id);
   drupalgap_alert("Clicked on item with value: " + $(item).attr('value'));
+  */
+  drupalgap_goto('node/'+id);
 }
 
 /**
@@ -100,10 +104,10 @@ function spots_autocomplete_onclick(id, item) {
 function spot_locator_map_pageshow() {
   try {
     navigator.geolocation.getCurrentPosition(
-      
       // Success.
       function(position) {
-
+        alert(position.coords.latitude + ' - ' + position.coords.longitude);
+        /*
         // Set aside the user's position.
         _spot_locator_user_latitude = position.coords.latitude;
         _spot_locator_user_longitude = position.coords.longitude;
@@ -140,7 +144,7 @@ function spot_locator_map_pageshow() {
             map: _spot_locator_map,
             icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
         });
-        
+        */
       },
       
       // Error
@@ -155,4 +159,5 @@ function spot_locator_map_pageshow() {
     );
   }
   catch (error) { console.log('spot_locator_map_pageshow - ' + error); }
+
 }
