@@ -62,16 +62,19 @@ function spot_locator_page() {
     };
     
     // find spots button
+    
     content['find_nearby_locations'] = {
       theme: 'button',
       text: 'Closest spots',
       attributes: {
         //onclick: "drupalgap_alert('You clicked me!');",
-        onclick: "spots_locator_map_button_click()",
+        onclick: "spots_locator_map_button_click()"
+        ,
         'data-theme': 'b'
+        
       }
     };
-    
+   
     // spots map
     // @todo move in helper
     var map_attributes = {
@@ -83,6 +86,7 @@ function spot_locator_page() {
       markup: '<div ' + drupalgap_attributes(map_attributes) + '></div>'
     };
     
+    
     // location results list
     content['location_results'] = {
       theme: 'jqm_item_list',
@@ -92,6 +96,7 @@ function spot_locator_page() {
       }
     };
     
+   
     return content;
   }
   catch (error) { console.log('autocomplete spots - ' + error); }
@@ -127,7 +132,7 @@ function spots_locator_map_button_click() {
     //var path = 'nearby-locations.json/' + _my_module_user_latitude + ',' + _my_module_user_longitude + '_' + range;
     var path = 'nearby-locations.json/' + _spot_locator_user_latitude + ',' + _spot_locator_user_longitude;
     
-    drupalgap_alert('Try to fetch spots');
+    //drupalgap_alert('Try to fetch spots');
     
     // Call the server.
     views_datasource_get_view_result(path, {
@@ -169,23 +174,124 @@ function spots_locator_map_button_click() {
 
         }
     });
-    
+
   }
   catch (error) { console.log('spots_locator_map_button_click - ' + error); }
   
-
 }
 
+
+function spot_locator_map_pageshow_debug() {
+  try {
+    drupalgap_alert('spot_locator_map_pageshow');
+    
+    var options = {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    };
+
+    function success(pos) {
+      var crd = pos.coords;
+      console.log('Your current position is:');
+      console.log('Latitude : ' + crd.latitude);
+      console.log('Longitude: ' + crd.longitude);
+      console.log('More or less ' + crd.accuracy + ' meters.');
+    };
+
+    function error(err) {
+      console.warn('ERROR(' + err.code + '): ' + err.message);
+    };
+
+    navigator.geolocation.getCurrentPosition(success, error, options);
+    
+  }
+  catch (error) { console.log('my_module_map_pageshow - ' + error); }
+}
 
 /**
  * The map pageshow callback.
  */
 function spot_locator_map_pageshow() {
   try {
+    //drupalgap_alert('spot_locator_map_pageshow ...');
+    
+    var options = {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    };
+
+    function success(pos) {
+      var crd = pos.coords;
+      console.log('Your current position is:');
+      console.log('Latitude : ' + crd.latitude);
+      console.log('Longitude: ' + crd.longitude);
+      console.log('More or less ' + crd.accuracy + ' meters.');
+      
+      // Set aside the user's position.
+        _spot_locator_user_latitude = crd.latitude;
+        _spot_locator_user_longitude = crd.longitude;
+        
+        // Build the lat lng object from the user's current position.
+        var myLatlng = new google.maps.LatLng(
+          _spot_locator_user_latitude,
+          _spot_locator_user_longitude
+        );
+        
+        // Set the map's options.
+        var mapOptions = {
+          center: myLatlng,
+          zoom: 11,
+          mapTypeControl: true,
+          mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.DROPDOWN_MENU
+          },
+          zoomControl: true,
+          zoomControlOptions: {
+            style: google.maps.ZoomControlStyle.SMALL
+          }
+        };
+        
+        // Initialize the map.
+        _spot_locator_map = new google.maps.Map(
+          document.getElementById("spot_locator_map"),
+          mapOptions
+        );
+        
+        
+        // Add a marker for the user's current position.
+        var marker = new google.maps.Marker({
+            position: myLatlng,
+            map: _spot_locator_map,
+            icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+        });
+      
+    };
+
+    function error(err) {
+      console.warn('ERROR(' + err.code + '): ' + err.message);
+      drupalgap_alert(error);
+    };
+
+    navigator.geolocation.getCurrentPosition(success, error, options);
+    
+  }
+  catch (error) { console.log('my_module_map_pageshow - ' + error); }
+}
+
+
+/**
+ * The map pageshow callback.
+ * This construction causes ios crash
+ */
+/*
+function spot_locator_map_pageshow() {
+  try {
     navigator.geolocation.getCurrentPosition(
       // Success.
       function(position) {
-        //drupalgap_alert(position.coords.latitude + ' / ' + position.coords.longitude);
+        drupalgap_alert(position.coords.latitude + ' / ' + position.coords.longitude);
         
         // Set aside the user's position.
         _spot_locator_user_latitude = position.coords.latitude;
@@ -217,6 +323,7 @@ function spot_locator_map_pageshow() {
           mapOptions
         );
         
+        
         // Add a marker for the user's current position.
         var marker = new google.maps.Marker({
             position: myLatlng,
@@ -227,7 +334,7 @@ function spot_locator_map_pageshow() {
       
       // Error
       function(error) {
-        console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
+        //console.log('spot_locator_map_pageshow - getCurrentPosition - ' + error);
         drupalgap_alert(error);
       },
       
@@ -237,5 +344,5 @@ function spot_locator_map_pageshow() {
     );
   }
   catch (error) { console.log('spots_locator_map_button_click - ' + error); }
-
 }
+*/

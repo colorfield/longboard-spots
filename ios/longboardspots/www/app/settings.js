@@ -95,6 +95,7 @@ Drupal.modules.contrib['geofield'] = {};
 
 //Drupal.modules.custom['my_module'] = {};
 Drupal.modules.custom['spot_locator'] = {};
+Drupal.modules.custom['spot_list'] = {};
 
 /***************************************|
  * Menus - http://drupalgap.org/node/85 |
@@ -224,7 +225,8 @@ drupalgap.settings.blocks.easystreet3 = {
   },
   content: {
     messages: { },
-    main: { }
+    main: { },
+    toggle_building: { }
   },
   footer: {
     //powered_by: { }
