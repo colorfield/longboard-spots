@@ -225,8 +225,14 @@ drupalgap.settings.blocks.easystreet3 = {
   },
   content: {
     messages: { },
-    main: { },
-    toggle_building: { }
+    toggle_building: { 
+      // @todo include for spot content type only
+      pages: {
+        value: ['node/*'],
+        mode: 'include'
+      }
+    },
+    main: { }
   },
   footer: {
     //powered_by: { }
