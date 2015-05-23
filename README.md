@@ -1,4 +1,5 @@
 longboardplanet-spots
 =====================
 
-Drupal 7 Drupalgap release for spots web and mobile app
+Drupal 7 website coupled to the Drupal gap client app
+https://github.com/r-daneelolivaw/longboard-spots-app
