@@ -56,6 +56,13 @@ function drupalgap_menu() {
     'access arguments' => array('administer drupalgap'),
     'file' => 'drupalgap.pages.inc',
   );
+  $items['admin/config/services/drupalgap/download-app'] = array(
+    'title' => 'Download app',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupalgap_download_app',
+    'access arguments' => array('administer drupalgap'),
+    'file' => 'drupalgap.pages.inc',
+  );
   return $items;
 }
 
@@ -141,7 +148,7 @@ function drupalgap_services_request_postprocess_alter($controller, $args, &$resu
           $sql = "SELECT fm.uri, u.uid FROM {file_managed} fm " .
             "INNER JOIN {users} u ON u.picture = fm.fid WHERE u.uid = :uids";
           $picture = db_query($sql, array(':uids' => $uids))->fetch();
-          $result->picture_uri = $picture->uri;
+          $result->picture_uri = isset($picture->uri) ? $picture->uri : NULL;
         }
         else if (!empty($uids)) {
           watchdog('drupalgap', 'uids');
@@ -183,48 +190,17 @@ function drupalgap_services_request_postprocess_alter($controller, $args, &$resu
           $result[$i]->node_type = $result[$i]->bundle;
           $entities[$comment->cid] = $comment;
         }
+        // @todo - what is this line used for?
         if (!empty($entities)) { field_attach_load('comment', $entities); }
+
+        _drupalgap_add_term_data_to_entities($controller, $args, $result);
+
       }
       break;
     case '_node_resource_retrieve':
-      
-      // Grab the field info instances for this node type.
-      $instances = field_info_instances('node', $result->type);
-      
-      // Let's add taxonomy term names along with their ids onto taxonomy term
-      // reference fields.
-      foreach($instances as $field => $instance) {
-        if (
-          $instance['widget']['module'] == 'taxonomy' ||
-          ($instance['widget']['module'] == 'options' && $instance['display']['default']['module'] == 'taxonomy')
-        ) {
-          // Determine the field's language from the node, and fall back to
-          // 'und' if the field's language isn't set.
-          $language = $result->language;
-          if (!isset($result->{$field}[$language])) { $language = 'und'; }
-          // Extract the term ids.
-          $tids = array();
-          if (isset($result->{$field}[$language])) {
-            foreach($result->{$field}[$language] as $delta => $term) {
-              $tids[] = $term['tid'];
-            }
-          }
-          if (empty($tids)) { continue; }
-          // Grab the term names.
-          $sql = "SELECT t.tid, t.name FROM {taxonomy_term_data} t WHERE t.tid IN (:tids)";
-          $terms = db_query($sql, array(':tids' => $tids))->fetchAll();
-          if (empty($terms)) { continue; }
-          foreach($result->{$field}[$language] as $delta => $term) {
-            foreach($terms as $_term) {
-              if ($term['tid'] == $_term->tid) {
-                $result->{$field}[$language][$delta]['name'] = $_term->name;
-                break;
-              }
-            }
-          }
-        }
-      }
-      
+
+      _drupalgap_add_term_data_to_entities($controller, $args, $result);
+
       break;
   }
 }
@@ -295,15 +271,525 @@ function drupalgap_preprocess_views_views_json_style_simple(&$vars) {
     'pages' => $pager_total[0],
     'page' => $pager_page_array[0],
     'count' => intval($pager_total_items[0]),
-    'limit' => intval($pager_limits[0])
+    'limit' => intval($pager_limits[0]),
+    //'vars' => $vars // Uncomment this to see all the vars as JSON, and have a
+                      // huge performance penalty.
   );
   // If there were no pages, adjust the property values accordingly.
   if ($view['pages'] == null) {
     $view['count'] = sizeof($vars['rows'][$view['root']]);
     $view['limit'] = null;
   }
+  // If there are any exposed filters, attach them to the view object.
+  if (isset($vars['view']->exposed_data)) {
+    $view['exposed_data'] = $vars['view']->exposed_data;
+    $view['exposed_raw_input'] = $vars['view']->exposed_raw_input;
+    $view['filter'] = array();
+    foreach ($vars['view']->filter as $field => $filter) {
+      if ($filter->options['exposed']) {
+        if (!isset($filter->value_options)) { continue; }
+        // The entire field is huge in size and complexity, so let's trim it
+        // down to the bare necessities.
+        // @TODO - as the Views Exposed Filters feature evolves, revisit this
+        // from time to time to see if we need to drop anything else. Anything
+        // to help slim the amount of JSON is a good thing.
+        $view['filter'][$field] = array(
+          //'accept_null' => $filter->accept_null,
+          //'always_multiple' => $filter->always_multiple,
+          //'always_required' => $filter->always_required,
+          'definition' => $filter->definition,
+          //'field' => $filter->field,
+          //'group_info' => $filter->group_info,
+          //'localization_keys' => $filter->localization_keys, 
+          //'no_operator' => $filter->no_operator,
+          //'operator' => $filter->operator,
+          'options' => $filter->options,
+          //'position' => $filter->position,
+          //'real_field' => $filter->real_field,
+          //'relationship' => $filter->relationship,
+          'value' => $filter->value,
+          'value_options' => $filter->value_options,
+          //'value_value' => $filter->value_value
+        );
+      }
+    }
+  }
   // Attach the view data to the rows result.
   $vars['rows']['view'] = $view;
+}
+
+/**
+ *
+ */
+function drupalgap_sdk_form($form, &$form_state) {
+  global $base_url;
+
+  // Check installation status.
+  $installed = variable_get('drupalgap_sdk_installed', 0);
+  $dir = variable_get('drupalgap_sdk_dir', 'mobile-application');
+  if (!$installed) {
+    // Many existing sites will already have the mobile-application directory in
+    // use, let's auto detect that.
+    if (file_exists('mobile-application')) {
+      $installed = 1;
+      variable_set('drupalgap_sdk_installed', $installed);
+      variable_set('drupalgap_sdk_dir', $dir);
+    }
+    else {
+      $form['#prefix'] =
+        t(
+          'With one click, you can install the DrupalGap SDK alongside your Drupal
+          site. This allows you to begin building your app immediately.'
+        );
+    }
+  }
+  else {
+    // If it's installed, but the directory is gone, let them start over.
+    if (!file_exists('mobile-application')) {
+      $installed = 0;
+      variable_set('drupalgap_sdk_installed', $installed);
+    }
+  }
+
+  // Provide text field for SDK folder path.
+  $form['dir'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Directory'),
+    '#default_value' => $dir,
+    '#disabled' => $installed,
+    '#field_prefix' => $base_url . '/',
+    '#description' => $installed ?
+      t('The SDK is already installed.') :
+      t('Specify a folder name for the SDK to live in.')
+  );
+
+  // Provide them with a link to view the app.
+  if ($installed) {
+    $demo_link = base_path() . $dir . '/index.html';
+    $form['dir']['#suffix'] = '<div class="messages status">' .
+      '<a href="' . $demo_link . '" target="_blank" title="' . t('Test your app in a browser') . '">' .
+        t('Launch app') .
+      '</a>' . ' (' .
+      l(t('download'), 'admin/config/services/drupalgap/download-app', array('attributes' => array(
+        'title' => t('Download a zip file of your app')
+      ))) . ' | ' .
+      l(t('publish'), 'http://drupalgap.org/node/126', array('attributes' => array(
+        'target' => '_blank',
+        'title' => t('Learn how to publish your app for users to download')
+      ))) . ')' .
+    '</div>';
+  }
+
+  if (!$installed) {
+    $form['submit_button'] = array(
+      '#type' => 'submit',
+      '#value' => t('Install the SDK'),
+    );
+  }
+  
+  // Show helpful links.
+  $form['#suffix'] = theme('item_list', array('items' => array(
+    l(t('Getting started guide'), 'http://drupalgap.org/get-started'),
+    l(t('API'), 'http://api.drupalgap.org'),
+    l(t('Support'), 'http://drupalgap.org/support')
+  )));
+  
+  return $form;
+}
+
+/**
+ *
+ */
+function drupalgap_sdk_form_validate($form, &$form_state) {
+  $dir = $form_state['values']['dir'];
+  if (file_exists($dir)) {
+    form_set_error('dir', t('That directory already exists!'));
+  }
+  else if ($dir == 'drupalgap') {
+    form_set_error('dir', t('The name "drupalgap" is reserved, choose a different name.'));
+  }
+}
+
+/**
+ *
+ */
+function drupalgap_sdk_form_submit($form, &$form_state) {
+  global $base_url;
+  
+  // Set up vars.
+  $dir = check_plain($form_state['values']['dir']);
+  $file = "drupalgap-sdk.zip";
+
+  // Dev release.
+  //$source = "https://github.com/signalpoint/DrupalGap/archive/7.x-1.x.zip";
+  //$name = "DrupalGap-7.x-1.x";
+
+  // Recommended release.
+  $source = "https://github.com/signalpoint/DrupalGap/archive/7.x-1.1.zip";
+  $name = "DrupalGap-7.x-1.1";
+
+  // Download a zip file of the SDK from github.
+  if (file_put_contents($file, file_get_contents($source)) === false) {
+    return;
+  }
+
+  // Unzip the SDK.
+  $path = pathinfo(realpath($file), PATHINFO_DIRNAME);
+  $zip = new ZipArchive;
+  $res = $zip->open($file);
+  if ($res === TRUE) {
+    $zip->extractTo($path);
+    $zip->close();
+  }
+  else { drupal_set_message("Failed to unzip the $file file!", 'error'); }
+
+  // Rename the folder.
+  if (!rename($name, $dir)) {
+    drupal_set_message("Failed to move unzipped files to the $dir directory!", 'error');
+    return;
+  }
+  
+  // Make a copy of default.settings.js, set the site_path and save it as settings.js.
+  $settings = file_get_contents("$dir/app/default.settings.js");
+  $settings = str_replace(
+    "Drupal.settings.site_path = '';",
+    "Drupal.settings.site_path = '$base_url';",
+    $settings
+  );
+  if (file_put_contents("$dir/app/settings.js", $settings) === false) {
+    drupal_set_message(t('Failed to create the settings.js file!'), 'error');
+  }
+
+  // Delete the zip file.
+  if (!unlink($file)) {
+    drupal_set_message(t("Tried deleting the %file file, but failed", array('%file' => $file)), 'warning');
+  }
+
+  // Tell Drupal that everything is installed.
+  variable_set('drupalgap_sdk_installed', 1);
+  variable_set('drupalgap_sdk_dir', $dir);
+  drupal_set_message(t('The DrupalGap SDK was installed successfully! You may now test it below...'));
+
+}
+
+/**
+ * Renders the widget to control the module's for the app from the settings page.
+ */
+function drupalgap_modules_widget() {
+  if (!variable_get('drupalgap_sdk_installed', 0)) { return ''; }
+  $items = array(
+    l(t('Browse contrib modules'), 'http://drupalgap.org/project/modules', array(
+      'attributes' => array('target' => '_blank')
+    )),
+    l(t('Module help'), 'http://drupalgap.org/node/74', array(
+      'attributes' => array('target' => '_blank')
+    )),
+  );
+  $module_install_form = drupal_get_form('drupalgap_module_install_form');
+  $html = '<h2>' . t('Modules') . '</h2>' .
+    theme('item_list', array('items' => $items)) .
+    drupal_render($module_install_form);
+  $modules = drupalgap_load_modules('contrib');
+  if ($modules) {
+    //dpm($modules);
+    $rows = array();
+    foreach ($modules[0] as $delta => $line) {
+      $module = $modules[1][$delta];
+      $rows[] = array(
+        l($module, 'http://drupalgap.org/project/' . check_plain($module), array(
+          'attributes' => array('target' => '_blank')
+        ))
+      );
+    }
+    $html .= '<h3>Contrib</h3>' . theme('table', array('rows' => $rows));
+  }
+  return $html;
+}
+
+/**
+ *
+ */
+function drupalgap_module_install_form($form, &$form_state) {
+  $form['module'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Install module'),
+    '#description' => t('Enter the <em>machine name</em> of the module.'),
+    '#field_prefix' => 'http://drupalgap.org/project/',
+    '#size' => 16,
+    '#required' => TRUE
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Install')
+  );
+  return $form;
+}
+
+/**
+ *
+ */
+function drupalgap_module_install_form_validate($form, &$form_state) {
+}
+
+/**
+ *
+ */
+function drupalgap_module_install_form_submit($form, &$form_state) {
+  $module_details = drupalgap_load_module_details($form_state['values']['module']);
+  drupalgap_download_and_extract_module_from_github($module_details);
+  drupalgap_add_module_to_settings_file($module_details['github']['name']);
+}
+
+/**
+ *
+ */
+function drupalgap_path_to_settings_file() {
+  return variable_get('drupalgap_sdk_dir', 'mobile-application') . '/app/settings.js';
+}
+
+/**
+ * Loads the settings.js file as string.
+ */
+function drupalgap_load_settings_as_string() {
+  if (!drupalgap_sdk_installed()) { return false; }
+  return file_get_contents(drupalgap_path_to_settings_file());
+}
+
+/**
+ * Returns TRUE if the SDK is installed, FALSE otherwise.
+ */
+function drupalgap_sdk_installed() {
+  return variable_get('drupalgap_sdk_installed', 0);
+}
+
+/**
+ * Given a module type (contrib, custom), this loads the modules listed in
+ * settings.js and returns them as regex matches.
+ */
+function drupalgap_load_modules($type) {
+  $settings = drupalgap_load_settings_as_string();
+  // @see http://www.phpliveregex.com/
+  // original regex: [^\/]Drupal\.modules\.contrib\['(.+)'] = {.*};
+  $pattern = "/[^\/]Drupal\.modules\.{$type}\['(.+)'] = {.*};/";
+  $modules = array();
+  $result = preg_match_all($pattern, $settings, $modules);
+  if (!$result) { return FALSE; }
+  return $modules;
+}
+
+/**
+ * Given a module name, this will ask drupalgap.org for its module details.
+ */
+function drupalgap_load_module_details($module) {
+  $curl = curl_init();
+  curl_setopt_array($curl, array(
+    CURLOPT_RETURNTRANSFER => 1,
+    CURLOPT_URL => 'http://www.drupalgap.org/?q=drupalgap/dgm_resources/project_download',
+    CURLOPT_POST => 1,
+    CURLOPT_POSTFIELDS => 'project_name=' . check_plain($module)
+  ));
+  $result = drupal_json_decode(curl_exec($curl));
+  curl_close($curl);
+  return $result;
+}
+
+/**
+ * Given a module's details, this will download its zip file from github,
+ * extract it, delete the zip file, and move its contents to the app/modules
+ * folder.
+ */
+function drupalgap_download_and_extract_module_from_github($module_details) {
+  $dir = variable_get('drupalgap_sdk_dir', 'mobile-application');
+  $file = $module_details['github']['name'] . '.zip';
+  $source = $module_details['github']['html_url'] . '/archive/' . $module_details['github']['default_branch'] . '.zip';
+  // Download a zip file of the module from github.
+  if (file_put_contents($file, file_get_contents($source)) === false) {
+    drupal_set_message(t('Failed to download module!'), 'error');
+    return;
+  }
+
+  // Unzip the module.
+  $path = pathinfo(realpath($file), PATHINFO_DIRNAME) . '/' . $dir . '/app/modules';
+  if (!file_exists($path)) { mkdir($path); }
+  $zip = new ZipArchive;
+  $res = $zip->open($file);
+  if ($res === TRUE) {
+    $zip->extractTo($path);
+    $zip->close();
+  }
+  else { drupal_set_message("Failed to unzip the $file file!", 'error'); }
+  
+  // Delete the zip file.
+  if (!unlink($file)) {
+    drupal_set_message(t("Tried deleting the %file file, but failed", array('%file' => $file)), 'warning');
+  }
+
+  // Rename the folder.
+  if (!rename(
+    $path . '/' . $module_details['github']['name'] . '-' . $module_details['github']['default_branch'],
+    $path . '/' . $module_details['github']['name']
+  )) {
+    drupal_set_message("Failed to move unzipped files to the $path directory!", 'error');
+    return;
+  }
+  drupal_set_message("Installed module.");
+}
+
+/**
+ * Given a module name, this will add it to the settings.js file, right after
+ * the last module found in the file.
+ */
+function drupalgap_add_module_to_settings_file($module) {
+  $modules = drupalgap_load_modules('contrib');
+  if ($modules) {
+    // A module(s) is installed, append this module after the last module.
+    $look_for = $modules[0][sizeof($modules[0])-1];
+  }
+  else {
+    // No modules are installed yet, add this module right after the module
+    // comments. This is a terrible assumption, but we'll use it until we don't
+    // have the settings scattered throughout a JS file like a dumb dumb.
+    $look_for = '/** Contributed Modules - www/app/modules **/';
+  }
+  file_put_contents(drupalgap_path_to_settings_file(), str_replace(
+    $look_for,
+    $look_for . "\nDrupal.modules.contrib['$module'] = {};",
+    drupalgap_load_settings_as_string()
+  ));
+}
+
+/**
+ * @see http://stackoverflow.com/a/1334949/763010
+ */
+function DrupalGapZip($source, $destination) {
+  // credits: http://stackoverflow.com/users/89771/alix-axel
+  if (!extension_loaded('zip') || !file_exists($source)) { return false; }
+
+  $zip = new ZipArchive();
+  if (!$zip->open($destination, ZIPARCHIVE::CREATE)) { return false; }
+
+  $source = str_replace('\\', '/', realpath($source));
+
+  if (is_dir($source) === true) {
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source), RecursiveIteratorIterator::SELF_FIRST);
+
+    foreach ($files as $file) {
+      $file = str_replace('\\', '/', $file);
+
+      // Ignore "." and ".." folders
+      if( in_array(substr($file, strrpos($file, '/')+1), array('.', '..')) )
+          continue;
+
+      $file = realpath($file);
+
+      if (is_dir($file) === true) {
+        $zip->addEmptyDir(str_replace($source . '/', '', $file . '/'));
+      }
+      else if (is_file($file) === true) {
+        $zip->addFromString(str_replace($source . '/', '', $file), file_get_contents($file));
+      }
+    }
+  }
+  else if (is_file($source) === true) {
+    $zip->addFromString(basename($source), file_get_contents($source));
+  }
+
+  return $zip->close();
+}
+
+/**
+ *
+ */
+function _drupalgap_add_term_data_to_entities($controller, $args, &$result) {
+
+  // Determine the entity type, or return if we don't need (or understand) how
+  // to process it.
+  $entity_type = null;
+  $bundle = null;
+  switch ($controller['callback']) {
+    case '_comment_resource_index':
+      $entity_type = 'comment';
+      break;
+    case '_node_resource_retrieve':
+      $entity_type = 'node';
+      $bundle = $result->type;
+      break;
+  }
+  if (!$entity_type) { return; }
+
+  if (is_array($result)) {
+
+    // We have multiple results...
+    foreach ($result as $i => $entity) {
+      switch ($controller['callback']) {
+        case '_comment_resource_index':
+          $bundle = $entity->bundle;
+          break;
+        case '_node_resource_retrieve':
+          $bundle = $entity->type;
+          break;
+      }
+      $result[$i] = _drupalgap_add_term_data_to_entity($entity, $entity_type, $bundle);
+    }
+
+  }
+  else {
+
+    // We have a single result...
+    $result = _drupalgap_add_term_data_to_entity($result, $entity_type, $bundle);
+
+  }
+
+}
+
+/**
+ *
+ */
+function _drupalgap_add_term_data_to_entity($entity, $entity_type, $bundle) {
+  // Grab the field info instances for this entity type.
+  $instances = field_info_instances($entity_type, $bundle);
+
+  // Let's add taxonomy term names along with their ids onto taxonomy term
+  // reference fields.
+  foreach ($instances as $field => $instance) {
+    if (
+      $instance['widget']['module'] == 'taxonomy' ||
+      (
+        $instance['widget']['module'] == 'options' &&
+        isset($instance['display']['default']['module']) &&
+        (
+          $instance['display']['default']['module'] == 'taxonomy' ||
+          $instance['display']['default']['module'] == 'i18n_taxonomy'
+        )
+      )
+    ) {
+      // Determine the field's language from the node, and fall back to
+      // 'und' if the field's language isn't set.
+      $language = $entity->language;
+      if (!isset($entity->{$field}[$language])) { $language = 'und'; }
+      // Extract the term ids.
+      $tids = array();
+      if (isset($entity->{$field}[$language])) {
+        foreach($entity->{$field}[$language] as $delta => $term) {
+          $tids[] = $term['tid'];
+        }
+      }
+      if (empty($tids)) { continue; }
+      // Grab the term names.
+      $sql = "SELECT t.tid, t.name FROM {taxonomy_term_data} t WHERE t.tid IN (:tids)";
+      $terms = db_query($sql, array(':tids' => $tids))->fetchAll();
+      if (empty($terms)) { continue; }
+      foreach($entity->{$field}[$language] as $delta => $term) {
+        foreach($terms as $_term) {
+          if ($term['tid'] == $_term->tid) {
+            $entity->{$field}[$language][$delta]['name'] = $_term->name;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return $entity;
 }
 
 /**

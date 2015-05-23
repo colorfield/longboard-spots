@@ -18,22 +18,48 @@ function drupalgap_status() {
   // Set div id for system connect status message box.
   $div_id = 'drupalgap-system-connect-status-message';
 
-  // Build more info text and help link string.
-  $msg = t('Please refer to the <a href="@help_page">DrupalGap Module Help Page</a> for more information.', array('@help_page' => url('admin/help/drupalgap')));
-
   // Create output fieldsets.
+  $sdk_form = drupal_get_form('drupalgap_sdk_form');
   $output = array(
+
+    'drupalgap_app' => array(
+      '#theme' => 'fieldset',
+      '#title' => t('Application Development Kit'),
+      '#markup' => drupal_render($sdk_form),
+    ),
+
     'drupalgap_system_connect_status' => array(
       '#theme' => 'fieldset',
-      '#title' => t('System Connect Status'),
-      '#markup' => '<div id="' . $div_id . '">&nbsp;</div>',
+      '#description' => '<div style="float: right;">' .l(
+        t('Edit DrupalGap Service Resources'),
+        'admin/structure/services/list/drupalgap/resources',
+        array(
+          'query' => array(
+            'destination' => implode('/', arg())
+          )
+        )
+      ) . '</div>',
+      '#title' => t('App status'),
+      '#markup' =>
+        '<input type="button" class="form-submit" value="' . t('Test Connection') . '" onclick="drupalgap_system_connect_test();" />' .
+        '<div id="' . $div_id . '"></div>' . drupalgap_modules_widget(),
     ),
-    'drupalgap_information' => array(
-      '#theme' => 'fieldset',
-      '#title' => t('More Information'),
-      '#markup' => "<p>$msg</p>",
-    ),
+
   );
 
   return $output;
 }
+
+/**
+ * Zip's up the "mobile-application" directory and downloads it for the user.
+ */
+function drupalgap_download_app() {
+  $zipname = 'drupalgap-app.zip';
+  DrupalGapZip(variable_get('drupalgap_sdk_dir', 'mobile-application'), $zipname);
+  header('Content-Type: application/zip');
+  header("Content-Disposition: attachment; filename='$zipname'");
+  header('Content-Length: ' . filesize($zipname));
+  header("Location: " . $GLOBALS['base_path'] . $zipname);
+  drupal_exit();
+}
+

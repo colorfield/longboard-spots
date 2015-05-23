@@ -179,7 +179,7 @@ function _drupalgap_resource_user_logout() {
  * @return array
  *   Array with the user registration result and drupalgap system connect result.
  */
-function _drupalgap_resource_user_register ($name, $mail, $pass) {
+function _drupalgap_resource_user_register($name, $mail, $pass) {
   $results = array();
   
   // Make a call to the user login resource.
@@ -322,6 +322,7 @@ function _drupalgap_resource_system_site_settings() {
     'site_name',
     'theme_default',
     'user_pictures',
+    'user_picture_style',
     'user_email_verification',
     'user_register',
   );
@@ -329,7 +330,9 @@ function _drupalgap_resource_system_site_settings() {
   // Invoke hook_drupalgap_site_settings() to let others specify variable names
   // to use.
   if (sizeof(module_implements('drupalgap_site_settings')) > 0) {
-    module_invoke_all('drupalgap_site_settings', $names);
+    foreach(module_implements('drupalgap_site_settings') as $module) {
+      $names = module_invoke($module, 'drupalgap_site_settings', $names);
+    };
   }
 
   // Now fetch the values.
