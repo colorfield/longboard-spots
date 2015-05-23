@@ -1,5 +1,5 @@
 cordova*js
-app/modules/*
+#app/modules/*
 app/themes/*
 app/settings.js
 app/.gitignore
